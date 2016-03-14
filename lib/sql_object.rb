@@ -1,8 +1,6 @@
 require_relative 'db_connection'
 require 'active_support/inflector'
 require 'byebug'
-# NB: the attr_accessor we wrote in phase 0 is NOT used in the rest
-# of this project. It was only a warm up.
 
 class SQLObject
   def self.columns
@@ -85,40 +83,49 @@ class SQLObject
     values
   end
 
-  # def insert
-  #   col_names = self.class.columns.join(", ")
-  #   question_marks_array = ["?"] * self.class.columns.length
-  #   question_marks = question_marks_array.join(", ")
-  #   debugger
-  #   DBConnection.execute(<<-SQL, *self.attribute_values)
-  #     INSERT INTO
-  #       "#{self.class.table_name}"
-  #   SQL
-  #
-  # end
-
   def insert
     col_names = self.class.columns[1..-1].join(", ")
     question_marks_array = ["?"] * self.attribute_values.length
     question_marks = question_marks_array.join(", ")
 
-    debugger
-    search_string = <<-SQL
+    insert_string = <<-SQL
       INSERT INTO
-        "#{self.class.table_name} (#{col_names})"
+        #{self.class.table_name} (#{col_names})
       VALUES
         (#{question_marks})
     SQL
 
-    DBConnection.execute(search_string, *self.attribute_values);
-
+    DBConnection.execute(insert_string, *self.attribute_values)
+    self.id = DBConnection.last_insert_row_id
   end
 
   def update
-    # ...
+    sets_array = self.class.columns.map do |column|
+      "#{column} = ?"
+    end
+
+    sets = sets_array[1..-1].join(", ")
+
+    update_string = <<-SQL
+      UPDATE
+        #{self.class.table_name}
+      SET
+        #{sets}
+      WHERE
+        id = ?
+    SQL
+
+    search_attributes = self.attribute_values[1..-1].push(self.attribute_values[0])
+    DBConnection.execute(update_string, *search_attributes)
+
   end
 
   def save
-    # ...
+    if self.id == nil
+      self.insert
+    else
+      self.update
+    end
   end
+
 end
